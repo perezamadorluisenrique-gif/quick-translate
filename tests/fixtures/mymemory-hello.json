@@ -1,0 +1,33 @@
+{
+ "responseData": {
+  "translatedText": "Hola mundo",
+  "match": 0.85,
+  "detectedLanguage": "en"
+ },
+ "quotaFinished": false,
+ "mtLangSupported": null,
+ "responseDetails": "",
+ "responseStatus": 200,
+ "responderId": null,
+ "exception_code": null,
+ "matches": [
+  {
+   "id": 0,
+   "segment": "Hello world",
+   "translation": "Hola mundo",
+   "source": false,
+   "target": "es-ES",
+   "quality": 70,
+   "reference": "Machine Translation.",
+   "usage-count": 2,
+   "subject": false,
+   "created-by": "MT!",
+   "last-updated-by": "MT!",
+   "create-date": "2026-10-14 02:48:08",
+   "last-update-date": "2026-10-14 02:48:08",
+   "match": 0.85,
+   "penalty": null,
+   "model": "neural"
+  }
+ ]
+}

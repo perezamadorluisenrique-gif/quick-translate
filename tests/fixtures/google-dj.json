@@ -1,0 +1,10 @@
+{
+  "sentences": [
+    { "trans": "Hola mundo. ", "orig": "Hello world. ", "backend": 1 },
+    { "trans": "¿Cómo estás?", "orig": "How are you?", "backend": 1 }
+  ],
+  "src": "en",
+  "confidence": 1,
+  "spell": {},
+  "ld_result": { "srclangs": ["en"], "srclangs_confidences": [1], "extended_srclangs": ["en"] }
+}
