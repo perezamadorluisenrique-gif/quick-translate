@@ -105,3 +105,28 @@ test('CRLF line endings are kept per line', () => {
 test('an empty document has no lines', () => {
   assert.deepEqual(segment(''), []);
 });
+
+test('code and maths in a callout or a list item are kept whole', () => {
+  assert.deepEqual(view('> [!example]\n> ```css\n> .a { content: "x"; }\n> ```\n> After'), [
+    '‹> [!example]\\n›',
+    '‹> ```css\\n›',
+    '‹> .a { content: "x"; }\\n›',
+    '‹> ```\\n›',
+    '‹> ›After',
+  ]);
+  assert.deepEqual(view('> $$\n> \\text{Area}\n> $$'), ['‹> $$\\n›', '‹> \\text{Area}\\n›', '‹> $$›']);
+  assert.deepEqual(view('- ```js\n  let a = "b";\n  ```'), ['‹- ```js\\n›', '‹  let a = "b";\\n›', '‹  ```›']);
+  // A block opened in a callout ends with the callout; a quoted fence does not end one opened outside.
+  assert.deepEqual(view('> ```\n> code\n\nProse'), ['‹> ```\\n›', '‹> code\\n›', '‹\\n›', 'Prose']);
+  assert.deepEqual(view('```md\n> ```\nstill code\n```'), ['‹```md\\n›', '‹> ```\\n›', '‹still code\\n›', '‹```›']);
+});
+
+test('an inline HTML comment and a <pre> block are kept', () => {
+  assert.deepEqual(view('Text <!-- a note --> more'), ['Text ‹<!-- a note -->› more']);
+  assert.deepEqual(view('<pre><code>```query\nembed OR search\n```</code></pre>\nAfter'), [
+    '‹<pre><code>```query\\n›',
+    '‹embed OR search\\n›',
+    '‹```</code></pre>\\n›',
+    'After',
+  ]);
+});
