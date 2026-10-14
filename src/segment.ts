@@ -55,7 +55,7 @@ const INLINE = new RegExp(
     '</?[A-Za-z][^>\\n]*>', // 9: HTML tag
     '<%[^\\n]*?%>', // 10: Templater
     '\\[\\^[^\\]\\n]+\\]', // 11: footnote reference
-    '%%[^\\n]*?%%', // 12: comment
+    '%%[^\\n]*?%%|<!--[^\\n]*?-->', // 12: comment, Obsidian's or HTML
     '\\\\[\\\\`*_{}\\[\\]()#+\\-.!|~>$%^=]', // 13: escape
     '\\*\\*|__|~~|==', // 14: emphasis markers
     '#[\\p{L}\\p{N}_/-]+', // 15: tag
@@ -189,7 +189,17 @@ function proseLine(line: string): Line {
 
 // --- Documents ---------------------------------------------------------------------------------------------------
 
-const FENCE = /^\s*(`{3,}|~{3,})/;
+const FENCE = /^\s*(?:(?:[-*+]|\d{1,9}[.)])[ \t]+)?(`{3,}|~{3,})/;
+/** The start of an HTML block whose content is raw: code, a script, a style sheet. */
+const RAW_HTML = /^<(pre|script|style|textarea)(?=[\s>]|$)/i;
+
+/** Quote and callout markers at the start of a line: `> > `. */
+const QUOTE_MARKERS = /^(?:[ \t]*>[ \t]?)*/;
+
+/** How many quote or callout levels a line sits in: two for `> > text`. */
+function quoteDepth(line: string): number {
+  return (QUOTE_MARKERS.exec(line)?.[0] ?? '').split('>').length - 1;
+}
 
 /** Every line of `source`, with its line ending, as parts. Front matter, code, maths and comments are kept whole. */
 export function segment(source: string): Line[] {
@@ -198,6 +208,8 @@ export function segment(source: string): Line[] {
   const out: Line[] = [];
   let fence = '';
   let math = false;
+  // How deep in quotes or callouts the open code or maths block is: it ends with them.
+  let depth = 0;
   let comment = '';
   // Front matter needs its closing line: a document that opens with a rule is just a document.
   let frontMatter = pieces[0].trimEnd() === '---' && pieces.some((p, i) => i > 0 && i % 2 === 0 && (p.trim() === '---' || p.trim() === '...'));
@@ -207,7 +219,13 @@ export function segment(source: string): Line[] {
     const eol = pieces[i + 1] ?? '';
     if (i > 0 && !text && !eol) break; // the empty piece after a final line ending
     const whole = (): Line => [keep(text + eol)];
-    const trimmed = text.trim();
+    // Code and maths can sit in a quote or a callout; their lines are read without the `>` markers.
+    const body = text.slice((QUOTE_MARKERS.exec(text)?.[0] ?? '').length);
+    const trimmed = body.trim();
+    if ((fence || math) && quoteDepth(text) < depth) {
+      fence = '';
+      math = false;
+    }
 
     if (frontMatter) {
       out.push(whole());
@@ -216,8 +234,10 @@ export function segment(source: string): Line[] {
     }
     if (fence) {
       out.push(whole());
-      const close = FENCE.exec(text);
-      if (close && close[1][0] === fence[0] && close[1].length >= fence.length && trimmed === close[1]) fence = '';
+      const close = FENCE.exec(body);
+      if (close && close[1][0] === fence[0] && close[1].length >= fence.length && trimmed === close[1] && quoteDepth(text) === depth) {
+        fence = '';
+      }
       continue;
     }
     if (math) {
@@ -227,19 +247,29 @@ export function segment(source: string): Line[] {
     }
     if (comment) {
       out.push(whole());
-      if (trimmed.includes(comment === '%%' ? '%%' : '-->')) comment = '';
+      if (comment === '%%' || comment === '-->' ? trimmed.includes(comment) : trimmed.toLowerCase().includes(comment)) comment = '';
       continue;
     }
 
-    const open = FENCE.exec(text);
+    const open = FENCE.exec(body);
     if (open) {
       fence = open[1];
+      depth = quoteDepth(text);
       out.push(whole());
       continue;
     }
     if (trimmed.startsWith('$$') && !(trimmed.length > 3 && trimmed.endsWith('$$'))) {
       math = true;
+      depth = quoteDepth(text);
       out.push(whole());
+      continue;
+    }
+    // `<pre>`, `<script>`, `<style>` and `<textarea>` hold code or raw text up to their closing tag.
+    const raw = RAW_HTML.exec(trimmed);
+    if (raw) {
+      out.push(whole());
+      const closer = `</${raw[1].toLowerCase()}>`;
+      if (!trimmed.toLowerCase().includes(closer)) comment = closer;
       continue;
     }
     if (trimmed.startsWith('<!--') && !trimmed.includes('-->')) {
