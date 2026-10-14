@@ -4,6 +4,10 @@ The release workflow uses the section named after the version being released
 as the release description, so every version needs one. `npm version <x.y.z>`
 renames the `Unreleased` heading below to that version.
 
+## 0.1.1
+
+- Code blocks and maths inside callouts and list items, HTML comments and `<pre>` blocks are no longer sent for translation.
+
 ## 0.1.0
 
 - Translate the selection into a window with a language picker, Copy, Insert below and Replace selection, or replace it or insert the translation below in one undoable edit.

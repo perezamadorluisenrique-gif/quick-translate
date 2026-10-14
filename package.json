@@ -1,6 +1,6 @@
 {
   "name": "quick-translate",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Quick Translate for Obsidian - Translate the selection or a whole note into another language with no account, keeping links, code and front matter untouched.",
   "main": "main.js",
   "scripts": {
