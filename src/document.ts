@@ -25,9 +25,23 @@ function edges(text: string): { before: string; core: string; after: string } {
   return { before: text.slice(0, start), core, after: text.slice(start + core.length) };
 }
 
-/** The whole stretch from the first prose part to the last, or null when the line has no prose or reads `{0}` already. */
-function unitOf(line: Line): Unit | null {
-  const indexes = line.flatMap((p, i) => (p.keep ? [] : [i]));
+/** The ranges of a line between its table-cell pipes: nothing is translated across one. */
+function regions(line: Line): Array<[number, number]> {
+  const out: Array<[number, number]> = [];
+  let from = 0;
+  line.forEach((part, i) => {
+    if (!part.cell) return;
+    out.push([from, i]);
+    from = i + 1;
+  });
+  out.push([from, line.length]);
+  return out;
+}
+
+/** The stretch from the first prose part to the last in `[lo, hi)`, or null when it has fewer than two or reads `{0}` already. */
+function unitOf(line: Line, lo: number, hi: number): Unit | null {
+  const indexes: number[] = [];
+  for (let i = lo; i < hi; i++) if (!line[i].keep) indexes.push(i);
   if (indexes.length < 2) return null;
   const from = indexes[0];
   const to = indexes[indexes.length - 1];
@@ -65,35 +79,42 @@ function restore(unit: Unit, translated: string): string | null {
  *
  * A line with a link or code in the middle of a sentence goes out whole, with placeholders where the syntax is, so the
  * translator sees the full sentence. If a placeholder does not come back exactly once, the pieces between the syntax are
- * translated one by one instead: the result reads worse, but the syntax is never lost or moved.
+ * translated one by one instead: the result reads worse, but the syntax is never lost or moved. A table cell is always
+ * translated apart from its neighbours, so a translator that reorders words cannot move text between columns.
  */
 export async function translateMarkdown(source: string, translate: TranslateTexts): Promise<string> {
   const lines = segment(source);
 
-  // Round one: whole units where a line has syntax inside its prose, single parts everywhere else.
-  const units = new Map<number, Unit>();
+  // Round one: whole units where a region has syntax inside its prose, single parts everywhere else.
+  interface Job {
+    line: Line;
+    unit: Unit | null;
+    /** The prose parts of a region with no unit, by reference. */
+    parts: Part[];
+    slot: number[];
+  }
+  const jobs: Job[] = [];
   const queue: string[] = [];
-  const slot = new Map<string, number>();
+  const slots = new Map<string, number>();
   const ask = (text: string): number => {
-    let index = slot.get(text);
+    let index = slots.get(text);
     if (index === undefined) {
       index = queue.push(text) - 1;
-      slot.set(text, index);
+      slots.set(text, index);
     }
     return index;
   };
-  const sent = new Map<string, number>();
-  lines.forEach((line, row) => {
-    const unit = unitOf(line);
-    if (unit) {
-      units.set(row, unit);
-      sent.set(`${row}`, ask(edges(unit.text).core));
-      return;
+  for (const line of lines) {
+    for (const [lo, hi] of regions(line)) {
+      const unit = unitOf(line, lo, hi);
+      if (unit) {
+        jobs.push({ line, unit, parts: [], slot: [ask(edges(unit.text).core)] });
+        continue;
+      }
+      const parts = line.slice(lo, hi).filter((p) => !p.keep);
+      if (parts.length > 0) jobs.push({ line, unit: null, parts, slot: parts.map((p) => ask(edges(p.text).core)) });
     }
-    line.forEach((part, col) => {
-      if (!part.keep) sent.set(`${row}:${col}`, ask(edges(part.text).core));
-    });
-  });
+  }
   if (queue.length === 0) return source;
   const first = await translate(queue);
   if (first.length !== queue.length) throw new Error('The translator returned a different number of texts.');
@@ -103,33 +124,29 @@ export async function translateMarkdown(source: string, translate: TranslateText
     part.text = before + translated.trim() + after;
   };
 
-  // Round two: the lines whose placeholders did not survive, part by part.
-  const retry: Array<{ row: number; col: number }> = [];
-  lines.forEach((line, row) => {
-    const unit = units.get(row);
+  // Round two: the units whose placeholders did not survive, part by part. Regions go right to left, so a merge
+  // never moves the parts of a region still to come.
+  const retry: Part[] = [];
+  for (const job of [...jobs].reverse()) {
+    const { line, unit } = job;
     if (!unit) {
-      line.forEach((part, col) => {
-        if (!part.keep) put(part, first[sent.get(`${row}:${col}`) as number]);
-      });
-      return;
+      job.parts.forEach((part, i) => put(part, first[job.slot[i]]));
+      continue;
     }
-    const restored = restore(unit, first[sent.get(`${row}`) as number]);
+    const restored = restore(unit, first[job.slot[0]]);
     if (restored === null) {
-      line.forEach((part, col) => {
-        if (!part.keep && col >= unit.from && col <= unit.to) retry.push({ row, col });
-      });
-      return;
+      for (let i = unit.from; i <= unit.to; i++) if (!line[i].keep) retry.push(line[i]);
+      continue;
     }
     const lead = edges(line[unit.from].text).before;
     const trail = edges(line[unit.to].text).after;
-    const merged: Part = { text: lead + restored.trim() + trail, keep: false };
-    line.splice(unit.from, unit.to - unit.from + 1, merged);
-  });
+    line.splice(unit.from, unit.to - unit.from + 1, { text: lead + restored.trim() + trail, keep: false });
+  }
 
   if (retry.length > 0) {
-    const again = await translate(retry.map(({ row, col }) => edges(lines[row][col].text).core));
+    const again = await translate(retry.map((part) => edges(part.text).core));
     if (again.length !== retry.length) throw new Error('The translator returned a different number of texts.');
-    retry.forEach(({ row, col }, i) => put(lines[row][col], again[i]));
+    retry.forEach((part, i) => put(part, again[i]));
   }
   return join(lines);
 }

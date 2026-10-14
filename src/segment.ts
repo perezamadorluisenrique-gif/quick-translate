@@ -8,6 +8,8 @@
 export interface Part {
   text: string;
   keep: boolean;
+  /** A pipe between table cells: never merged, and no translation spans it, so a cell stays in its column. */
+  cell?: boolean;
 }
 
 export type Line = Part[];
@@ -28,7 +30,7 @@ function tidy(parts: Part[]): Line {
   for (const part of parts) {
     if (!part.text) continue;
     const last = out[out.length - 1];
-    if (last && last.keep === part.keep) last.text += part.text;
+    if (last && last.keep === part.keep && !last.cell && !part.cell) last.text += part.text;
     else out.push({ ...part });
   }
   return out;
@@ -175,7 +177,7 @@ function proseLine(line: string): Line {
         continue;
       }
       part.text.split('|').forEach((cell, i) => {
-        if (i > 0) parts.push(keep('|'));
+        if (i > 0) parts.push({ text: '|', keep: true, cell: true });
         parts.push(prose(cell));
       });
     }

@@ -93,3 +93,21 @@ test('a callout keeps its type and translates its title and body', async () => {
   const got = await translateMarkdown('> [!warning]- Be careful\n> Hot surface\n', shout());
   assert.equal(got, '> [!warning]- BE CAREFUL\n> HOT SURFACE\n');
 });
+
+/** A stand-in for a language with another word order: it reverses the words of every text, placeholders included. */
+const reverse: TranslateTexts = async (texts) => texts.map((t) => t.split(' ').reverse().join(' '));
+
+test('a translator that reorders words cannot move text between table cells', async () => {
+  const got = await translateMarkdown('| Product name | Unit price |\n| --- | --- |\n| Blue chair | Very cheap |\n', reverse);
+  assert.equal(got, '| name Product | price Unit |\n| --- | --- |\n| chair Blue | cheap Very |\n');
+});
+
+test('a cell with syntax in it is still its own unit, and its neighbours are untouched', async () => {
+  const got = await translateMarkdown('| See [[Other]] now | Second cell | `code` third |\n', reverse);
+  assert.equal(got, '| now [[Other]] See | cell Second | `code` third |\n');
+});
+
+test('a wikilink alias pipe is not a cell boundary, and the placeholder fallback works inside a cell', async () => {
+  const got = await translateMarkdown('| big [[x|y]] cat | dog bird |\n', async (texts) => texts.map((t) => (t.includes('{0}') ? 'lost' : t.toUpperCase())));
+  assert.equal(got, '| BIG [[x|y]] CAT | DOG BIRD |\n');
+});
