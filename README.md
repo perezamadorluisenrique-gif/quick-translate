@@ -4,6 +4,8 @@ Translate the selection or a whole note into another language with no account, k
 
 Quick Translate is a successor to [Translate](https://github.com/fevol/obsidian-translate), Language Translator and DeepL, none of which has been updated for two years or more.
 
+![Quick Translate window with the translation and Replace selection](docs/screenshot.png)
+
 ## What it does
 
 - **Translate selection** shows the translation in a small window: pick another language there and it translates again, then **Copy**, **Insert below** or **Replace selection**. Two more commands skip the window: **Translate selection and replace it** and **Translate selection and insert it below**. In the settings you choose what plain **Translate selection** does. The right-click menu has **Translate selection into [language]** and **Translate selection into…**.
