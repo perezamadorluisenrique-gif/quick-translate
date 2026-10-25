@@ -4,7 +4,7 @@ Translate the selection or a whole note into another language with no account, k
 
 Quick Translate is a successor to [Translate](https://github.com/fevol/obsidian-translate), Language Translator and DeepL, none of which has been updated for two years or more.
 
-![Quick Translate window with the translation and Replace selection](docs/screenshot.png)
+![Quick Translate window with the translation and Replace selection](https://raw.githubusercontent.com/perezamadorluisenrique-gif/quick-translate/main/docs/screenshot.png)
 
 ## What it does
 
