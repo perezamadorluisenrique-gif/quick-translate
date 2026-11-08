@@ -6,6 +6,7 @@ import { PROVIDERS, TranslateError } from './src/providers.ts';
 import type { Http, ProviderId } from './src/providers.ts';
 import { Translator, translateDocument } from './src/translator.ts';
 import type { ProviderSettings, TranslatedDocument } from './src/translator.ts';
+import { moreDefinitions, renderMore } from './src/more-link.ts';
 
 /** The part of moment this plugin uses, typed here: the directory's review has no types for `moment`. */
 const appLocale = (): string => (moment as unknown as { locale(): string }).locale();
@@ -487,6 +488,7 @@ class QuickTranslateSettingTab extends PluginSettingTab {
           { ...TEXT.openTranslatedNote, control: { type: 'toggle', key: 'openTranslatedNote', defaultValue: true } },
         ],
       },
+      ...(moreDefinitions() as SettingDefinitionItem[]),
     ];
   }
 
@@ -519,6 +521,7 @@ class QuickTranslateSettingTab extends PluginSettingTab {
     this.dropdown('selectionAction', TEXT.selectionAction, SELECTION_ACTIONS);
     this.text('folder', TEXT.folder);
     this.toggle('openTranslatedNote', TEXT.openTranslatedNote);
+    renderMore(this.containerEl, (el) => new Setting(el));
   }
 
   private dropdown(key: Key, text: { name: string; desc: string }, options: Record<string, string>) {
